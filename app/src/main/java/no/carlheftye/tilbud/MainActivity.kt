@@ -24,6 +24,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -93,4 +94,3 @@ class MainActivity : ComponentActivity() {
         if (page == 1) {
             loading = true
             try { offers = withContext(Dispatchers.IO) { readOffers() }; error = "" }
-            catch (_: Exception) { error = "Kunne ikke hente tilbud. Sjekk internett og prøv igjen." }
