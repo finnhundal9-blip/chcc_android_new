@@ -151,7 +151,7 @@ class MainActivity : ComponentActivity() {
             painter = painterResource(R.drawable.chcc_weekly_offer),
             contentDescription = "Ukens tilbud – trykk for å se tilbudene",
             modifier = Modifier.fillMaxWidth()
-                .aspectRatio(1133f / 438f)
+                .aspectRatio(1769f / 889f)
                 .clip(RoundedCornerShape(18.dp))
                 .clickable(onClick = onOffers),
             contentScale = ContentScale.Fit
