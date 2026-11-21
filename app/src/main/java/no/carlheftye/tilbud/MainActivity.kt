@@ -3,6 +3,14 @@ package no.carlheftye.tilbud
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.content.Context
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.graphics.asImageBitmap
+import android.graphics.Bitmap
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.MultiFormatWriter
+import com.google.zxing.EncodeHintType
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -118,7 +126,7 @@ private fun FreshApp() {
             }
         }) { inset ->
             when (page) {
-                0 -> HomePage(Modifier.padding(inset), onOffers = { page = 1 }, onMember = { page = 3 })
+                0 -> HomePage(Modifier.padding(inset), onOffers = { page = 1 }, onMember = { page = 3 }, onCustomer = { page = 4 })
                 1 -> {
                     val groups = listOf("Alle") + offers.map { it.group }.filter { it.isNotBlank() }.distinct().sorted()
                     val filtered = offers.filter {
@@ -166,6 +174,7 @@ private fun FreshApp() {
                 }
                 2 -> AboutPage(Modifier.padding(inset))
                 3 -> MemberPage(Modifier.padding(inset), onBack = { page = 0 })
+                4 -> CustomerCardPage(Modifier.padding(inset), onBack = { page = 0 })
             }
         }
     }
@@ -179,7 +188,7 @@ private fun Logo(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun HomePage(modifier: Modifier = Modifier, onOffers: () -> Unit, onMember: () -> Unit) {
+private fun HomePage(modifier: Modifier = Modifier, onOffers: () -> Unit, onMember: () -> Unit, onCustomer: () -> Unit) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -201,6 +210,11 @@ private fun HomePage(modifier: Modifier = Modifier, onOffers: () -> Unit, onMemb
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500), contentColor = ink),
             shape = RoundedCornerShape(16.dp)) {
             Text("+Medlem – fordeler og innmelding", fontWeight = FontWeight.Bold)
+        }
+        Button(onClick = onCustomer, modifier = Modifier.fillMaxWidth().height(54.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500), contentColor = ink),
+            shape = RoundedCornerShape(16.dp)) {
+            Text("Kunde – mitt kundekort", fontWeight = FontWeight.Bold)
         }
         Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
             Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -334,5 +348,95 @@ private fun MemberPage(modifier: Modifier = Modifier, onBack: () -> Unit) {
             }
         }
         Spacer(Modifier.height(12.dp))
+    }
+}
+
+
+// The customer ID stays in private app storage; no server request is made.
+private const val CUSTOMER_PREFS = "chcc_customer_card"
+private const val CUSTOMER_KEY = "customer_id"
+
+private fun barcodeBitmap(value: String): Bitmap {
+    val hints = mapOf<EncodeHintType, Any>(EncodeHintType.MARGIN to 16)
+    val matrix = MultiFormatWriter().encode(value, BarcodeFormat.CODE_128, 1100, 310, hints)
+    val pixels = IntArray(matrix.width * matrix.height)
+    for (y in 0 until matrix.height) for (x in 0 until matrix.width) {
+        pixels[y * matrix.width + x] = if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+    }
+    return Bitmap.createBitmap(pixels, matrix.width, matrix.height, Bitmap.Config.ARGB_8888)
+}
+
+@Composable
+private fun CustomerCardPage(modifier: Modifier = Modifier, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember(context) { context.getSharedPreferences(CUSTOMER_PREFS, Context.MODE_PRIVATE) }
+    var savedId by remember { mutableStateOf(prefs.getString(CUSTOMER_KEY, "") ?: "") }
+    var input by remember { mutableStateOf(savedId) }
+    var editing by remember { mutableStateOf(savedId.isBlank()) }
+    // Code 128 supports printable ASCII; limit length to keep barcode scan-friendly.
+    val valid = input.isNotBlank() && input.length <= 32 && input.all { it.code in 32..126 }
+    val barcode = remember(savedId) {
+        if (savedId.isBlank()) null else runCatching { barcodeBitmap(savedId).asImageBitmap() }.getOrNull()
+    }
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        TextButton(onClick = onBack, modifier = Modifier.align(Alignment.Start)) {
+            Icon(Icons.Default.ArrowBack, contentDescription = null)
+            Spacer(Modifier.width(6.dp))
+            Text("Tilbake til Hjem")
+        }
+        Logo(Modifier.fillMaxWidth().height(112.dp))
+        Text("Mitt kundekort", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = forest)
+        Text("Vis strekkoden i kassen", color = ink)
+        if (editing) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Kundenummer", fontWeight = FontWeight.Bold, color = ink)
+                    OutlinedTextField(value = input, onValueChange = { if (it.length <= 32) input = it },
+                        label = { Text("Skriv inn ditt kundenummer") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                        isError = input.isNotEmpty() && !valid)
+                    Text("Tillatt: bokstaver, tall og vanlige tegn (maks 32).",
+                        fontSize = 12.sp, color = Color.DarkGray)
+                    Button(onClick = {
+                        val value = input.trim()
+                        prefs.edit().putString(CUSTOMER_KEY, value).apply()
+                        savedId = value
+                        input = value
+                        editing = false
+                    }, enabled = valid && input.trim().isNotEmpty(), modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500), contentColor = ink)) {
+                        Text("Lagre kundekort", fontWeight = FontWeight.Bold)
+                    }
+                    if (savedId.isNotBlank()) TextButton(onClick = { input = savedId; editing = false }) { Text("Avbryt") }
+                }
+            }
+        } else {
+            Card(colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("CHCC KUNDEKORT", fontWeight = FontWeight.Bold, color = forest)
+                    if (barcode != null) {
+                        Image(bitmap = barcode, contentDescription = "Code 128 kundestrekkode",
+                            modifier = Modifier.fillMaxWidth().height(135.dp), contentScale = ContentScale.Fit)
+                    } else Text("Kunne ikke generere strekkoden.", color = terracotta)
+                    Text(savedId, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = ink,
+                        textAlign = TextAlign.Center)
+                    Text("CODE 128", fontSize = 11.sp, color = Color.Gray)
+                }
+            }
+            OutlinedButton(onClick = { input = savedId; editing = true }, modifier = Modifier.fillMaxWidth()) {
+                Text("Endre kundenummer")
+            }
+        }
+        Text("Kundenummeret lagres kun på denne telefonen og kan vises uten internett.",
+            color = ink, fontSize = 13.sp, textAlign = TextAlign.Center)
+        Text("Kundekortet er selvregistrert og bekrefter ikke at nummeret tilhører deg.",
+            color = Color.DarkGray, fontSize = 12.sp, textAlign = TextAlign.Center)
     }
 }
