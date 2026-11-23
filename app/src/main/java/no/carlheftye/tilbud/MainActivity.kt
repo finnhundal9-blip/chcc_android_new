@@ -159,19 +159,23 @@ private fun HomePage(
             .fillMaxSize()
             .background(Color(0xFF202020))
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.chcc_home_hero),
-                contentDescription = "CHCC hjemskjerm med kampanjebilde",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit
-            )
-        }
+       Box(
+    modifier = Modifier
+        .fillMaxWidth()
+        .weight(1f),
+    contentAlignment = Alignment.TopCenter
+) {
+    Image(
+        painter = painterResource(
+            id = R.drawable.chcc_home_hero
+        ),
+        contentDescription = "CHCC hjemskjerm med kampanjebilde",
+        modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentHeight(),
+        contentScale = ContentScale.FillWidth
+    )
+}
         Row(
             modifier = Modifier
                 .fillMaxWidth()
