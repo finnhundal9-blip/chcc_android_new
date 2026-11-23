@@ -50,7 +50,7 @@ import java.util.Locale
 
 private const val ENDPOINT = "https://script.google.com/macros/s/AKfycbzRRK32WEGTkArU3Un_CjxgLROPEETU_0Zc1uQubj3eI56qle6UOrCVAKwly2ES-_pj/exec"
 private val forest = Color(0xFF285943)
-private val cream = Color(0xFFE8E8E8)
+private val cream = Color(0xFFBDBDBD)
 private val sage = Color(0xFFD9E5D5)
 private val terracotta = Color(0xFFD97842)
 private val ink = Color(0xFF24352D)
