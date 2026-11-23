@@ -1,188 +1,34 @@
-package no.carlheftye.tilbud
-
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.os.Bundle
-import android.graphics.Bitmap
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.LocalOffer
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.EncodeHintType
-import com.google.zxing.MultiFormatWriter
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import java.net.HttpURLConnection
-import java.net.URL
-import java.text.NumberFormat
-import java.util.Locale
-
-private const val ENDPOINT = "https://script.google.com/macros/s/AKfycbzRRK32WEGTkArU3Un_CjxgLROPEETU_0Zc1uQubj3eI56qle6UOrCVAKwly2ES-_pj/exec"
-private val forest = Color(0xFF285943)
-private val cream = Color(0xFFBDBDBD)
-private val sage = Color(0xFFD9E5D5)
-private val terracotta = Color(0xFFD97842)
-private val ink = Color(0xFF24352D)
-private val orange = Color(0xFFFFA500)
-private val rounded = RoundedCornerShape(18.dp)
-
-data class Offer(val name: String, val description: String, val price: Double, val image: String, val group: String)
-
-private fun readOffers(): List<Offer> {
-    val connection = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
-        connectTimeout = 12000
-        readTimeout = 12000
-        instanceFollowRedirects = true
-    }
-    try {
-        if (connection.responseCode !in 200..299) error("HTTP ${connection.responseCode}")
-        val json = JSONArray(connection.inputStream.bufferedReader().use { it.readText() })
-        return (0 until json.length()).map { json.getJSONObject(it) }
-            .filter { it.optBoolean("Aktiv", false) }
-            .map { Offer(it.optString("Produkt"), it.optString("Beskrivelse"), it.optDouble("Pris", 0.0), it.optString("BildeUrl"), it.optString("Gruppe")) }
-    } finally { connection.disconnect() }
-}
-
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { FreshApp() } }
-}
-
-@Composable private fun Logo(modifier: Modifier = Modifier) {
-    Image(painterResource(R.drawable.chcc_logo), "Carl Heftye Cash & Carry logo", modifier, contentScale = ContentScale.Fit)
-}
-
-@Composable private fun FreshApp() {
-    var page by remember { mutableIntStateOf(0) }
-    var offers by remember { mutableStateOf<List<Offer>>(emptyList()) }
-    var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf("") }
-    var refresh by remember { mutableIntStateOf(0) }
-    var search by remember { mutableStateOf("") }
-    var selectedGroup by remember { mutableStateOf("Alle") }
-    LaunchedEffect(page, refresh) {
-        if (page == 1) {
-            loading = true
-            try {
-                offers = withContext(Dispatchers.IO) {
-                    readOffers()
-                }
-                error = ""
-            } catch (e: Exception) {
-                error = "Kunne ikke hente tilbud. Sjekk internett og prøv igjen."
-            } finally {
-                loading = false
-            }
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(R.drawable.chcc_home_hero),
+                contentDescription = "Våre tilbud – trykk for å se aktuelle tilbud",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit
+            )
         }
-    }
-    MaterialTheme(colorScheme = lightColorScheme(primary = forest, onPrimary = Color.White, background = cream, onBackground = ink, surface = Color.White, onSurface = ink, secondary = terracotta)) {
-        Scaffold(containerColor = cream, bottomBar = {
-            NavigationBar(containerColor = Color.White) {
-                listOf(Triple("Hjem", Icons.Default.Home, 0), Triple("Tilbud", Icons.Default.LocalOffer, 1), Triple("Om Carl Heftye", Icons.Default.Info, 2)).forEach { (label, icon, index) ->
-                    NavigationBarItem(selected = page == index, onClick = { page = index }, icon = { Icon(icon, contentDescription = label) }, label = { Text(label, maxLines = 1, fontSize = 10.sp) }, colors = NavigationBarItemDefaults.colors(selectedIconColor = forest, selectedTextColor = forest, indicatorColor = sage))
-                }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Button(
+                onClick = onMember,
+                modifier = Modifier.weight(1f).height(58.dp),
+                contentPadding = PaddingValues(horizontal = 4.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = orange, contentColor = Color.Black),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text("+Medlem", fontWeight = FontWeight.Bold, fontSize = 17.sp)
             }
-        }) { inset ->
-            when (page) {
-                0 -> HomePage(Modifier.padding(inset), { page = 1 }, { page = 3 }, { page = 4 })
-                1 -> {
-                    val groups = listOf("Alle") + offers.map { it.group }.filter { it.isNotBlank() }.distinct().sorted()
-                    val filtered = offers.filter { (selectedGroup == "Alle" || it.group == selectedGroup) && (it.name.contains(search, true) || it.description.contains(search, true) || it.group.contains(search, true)) }
-                    Column(Modifier.fillMaxSize().padding(inset).padding(horizontal = 14.dp)) {
-                        Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Aktuelle tilbud", fontSize = 27.sp, fontWeight = FontWeight.Bold, color = forest)
-                            TextButton(onClick = { refresh++ }) { Text("Oppdater") }
-                        }
-                        OutlinedTextField(search, { search = it }, label = { Text("Søk etter produkt") }, singleLine = true, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = Color.White, unfocusedContainerColor = Color.White))
-                        Spacer(Modifier.height(12.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
-                            items(groups.size) { i -> val group = groups[i]; FilterChip(selected = selectedGroup == group, onClick = { selectedGroup = group }, label = { Text(group) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = sage, selectedLabelColor = forest)) }
-                        }
-                        if (loading) LinearProgressIndicator(Modifier.fillMaxWidth(), color = forest)
-                        if (error.isNotBlank()) { Text(error, color = terracotta); TextButton(onClick = { refresh++ }) { Text("Prøv igjen") } }
-                        if (!loading && error.isBlank() && filtered.isEmpty()) Text("Ingen aktive tilbud funnet.")
-                        LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            items(filtered) { OfferCard(it) }
-                        }
-                    }
-                }
-                2 -> AboutPage(Modifier.padding(inset))
-                3 -> MemberPage(Modifier.padding(inset), { page = 0 })
-                4 -> CustomerCardPage(Modifier.padding(inset), { page = 0 })
-            }
-        }
-    }
-}
-
-@Composable private fun HomePage(modifier: Modifier, onOffers: () -> Unit, onMember: () -> Unit, onCustomer: () -> Unit) {
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        Logo(Modifier.fillMaxWidth().height(148.dp))
-        Image(
-            painter = painterResource(R.drawable.chcc_weekly_offer),
-            contentDescription = "Ukens tilbud – trykk for å se tilbudene",
-            modifier = Modifier.fillMaxWidth()
-                .aspectRatio(1769f / 889f)
-                .clip(RoundedCornerShape(18.dp))
-                .clickable(onClick = onOffers),
-            contentScale = ContentScale.Fit
-        )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = onMember, modifier = Modifier.weight(1f).height(68.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = orange, contentColor = ink),
-                shape = RoundedCornerShape(16.dp)) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("+Medlem", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text("Fordeler og innmelding", fontSize = 10.sp, maxLines = 1)
-                }
-            }
-            Button(onClick = onCustomer, modifier = Modifier.weight(1f).height(68.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = orange, contentColor = ink),
-                shape = RoundedCornerShape(16.dp)) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Kunde", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text("Mitt kundekort", fontSize = 11.sp)
-                }
-            }
-        }
-        Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
-            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Velkommen innom", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = forest)
-                Text("Opplev torgfølelsen hos Carl Heftye Cash & Carry.")
-                HorizontalDivider(color = sage)
-                Text("Mandag–fredag  07:00–16:00")
-                Text("Lørdag  07:00–15:00")
+            OutlinedButton(
+                onClick = onCustomer,
+                modifier = Modifier.weight(1f).height(58.dp),
+                contentPadding = PaddingValues(horizontal = 4.dp),
+                border = BorderStroke(2.dp, Color.White),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text("Kundekort", fontWeight = FontWeight.Bold, fontSize = 17.sp)
             }
         }
     }
@@ -312,32 +158,3 @@ private fun barcodeBitmap(value: String): Bitmap {
         Logo(Modifier.fillMaxWidth().height(112.dp))
         Text("Mitt kundekort", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = forest)
         Text("Vis strekkoden i kassen", color = ink)
-        if (editing) {
-            Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = rounded, modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Kundenavn", fontWeight = FontWeight.Bold)
-                    OutlinedTextField(value = nameInput, onValueChange = { if (it.length <= 100) nameInput = it }, label = { Text("Skriv inn kundenavn") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    Text("Kundenummer", fontWeight = FontWeight.Bold)
-                    OutlinedTextField(value = input, onValueChange = { if (it.length <= 32) input = it }, label = { Text("Skriv inn ditt kundenummer") }, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters), isError = input.isNotEmpty() && !valid)
-                    Text("Tillatt: bokstaver, tall og vanlige tegn (maks 32).", fontSize = 12.sp)
-                    Button(onClick = { val value = input.trim(); val name = nameInput.trim(); prefs.edit().putString(CUSTOMER_KEY, value).putString(CUSTOMER_NAME_KEY, name).apply(); savedId = value; savedName = name; input = value; nameInput = name; editing = false }, enabled = valid && input.trim().isNotEmpty() && nameInput.isNotBlank(), modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = orange, contentColor = ink)) { Text("Lagre kundekort") }
-                    if (savedId.isNotBlank()) TextButton(onClick = { input = savedId; nameInput = savedName; editing = false }) { Text("Avbryt") }
-                }
-            }
-        } else {
-            Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = rounded, modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("CHCC KUNDEKORT", fontWeight = FontWeight.Bold, color = forest)
-                    if (savedName.isNotBlank()) Text(savedName, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = ink, textAlign = TextAlign.Center)
-                    if (barcode != null) Image(bitmap = barcode, contentDescription = "Code 128 kundestrekkode", modifier = Modifier.fillMaxWidth().height(135.dp), contentScale = ContentScale.Fit)
-                    else Text("Kunne ikke generere strekkoden.", color = terracotta)
-                    Text(savedId, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = ink, textAlign = TextAlign.Center)
-                    Text("CODE 128", fontSize = 11.sp, color = Color.Gray)
-                }
-            }
-            OutlinedButton(onClick = { input = savedId; nameInput = savedName; editing = true }, modifier = Modifier.fillMaxWidth()) { Text("Endre kundekort") }
-        }
-        Text("Kundenavn og kundenummer lagres kun på denne telefonen og kan vises uten internett.", color = ink, fontSize = 13.sp, textAlign = TextAlign.Center)
-        Text("Kundekortet er selvregistrert og bekrefter ikke at nummeret tilhører deg.", color = Color.DarkGray, fontSize = 12.sp, textAlign = TextAlign.Center)
-    }
-}
